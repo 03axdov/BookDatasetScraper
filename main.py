@@ -6,49 +6,57 @@ import numpy as np
 from bs4 import BeautifulSoup
 import requests
 
-from utils import process_num_ratings, create_ds, write_to_file, handle_length
+from utils import *
 
 FILE_PATH = "db.txt"
 
 def main():
     count = 0
-    index = 1049000
+    index = 5
     while True:
-        URL = "https://www.imdb.com/title/tt" + "0" * (7 - len(str(index))) + str(index) + "/"
+        URL = "https://www.goodreads.com/book/show/" + str(index)
+        rating = False
+        ratings_count = False
+        description = False
+        title = False
 
-        page = requests.get(URL)
-        soup = BeautifulSoup(page.content, "html.parser")
-
-        try:
-            storyline = soup.find("span", {"class": "sc-16ede01-1 kgphFu"}).text
-            num_ratings = soup.find("div", {"class": "sc-7ab21ed2-3 dPVcnq"}).text
-            rating = soup.find("span", {"class": "sc-7ab21ed2-1 jGRxWM"}).text
-            title = soup.find("h1", {"class", "sc-b73cd867-0 eKrKux"}).text
-            year = soup.find("a", {"class": "ipc-link ipc-link--baseAlt ipc-link--inherit-color sc-8c396aa2-1 WIUyh"}).text
-
-            list = soup.find("ul", {"class": "ipc-inline-list ipc-inline-list--show-dividers sc-8c396aa2-0 kqWovI baseAlt"})
+        while count < 100:
+            if count != 0 and count % 10 == 0:
+                print(f"Count - {count}")
             try:
-                length = list.findChildren("li")[2].text
-            except IndexError:
-                length = "error"    # Will become -1
+                page = requests.get(URL)
+                soup = BeautifulSoup(page.content, "html.parser")
 
-            if storyline and rating and process_num_ratings(num_ratings) > 10000 and len(storyline) > 125 and len(year) == 4 and int(year) > 1945:
+                if not rating:
+                    rating = soup.find("div", {"class": "RatingStatistics__rating"}).text
+                    print(rating)
+                
+                if not ratings_count:
+                    ratings_count = soup.find("span", {"data-testid": "ratingsCount"}).text
+                    print(ratings_count)
+
+                if not description:
+                    description = soup.find("div", {"id": "descriptionContainer"}).findChildren("span" , recursive=True)[1].text
+                    print(description)
+
+                if not title:
+                    title = soup.find("h1", {"id": "bookTitle"}).text.strip()
+                    print(title)
+
+                write_to_file(rating, ratings_count, description, title)
+
                 print("")
-                print(storyline)
-                print(rating)
+                print(f"{title} - {URL}")
                 print("")
-                print(f"https://www.imdb.com/title/tt{'0' * (7 - len(str(index))) + str(index) + '/'}")
+
+                break
+            except (AttributeError, IndexError):
                 count += 1
+                continue
 
-                write_to_file(rating, storyline, title, year, length, FILE_PATH)
-
-            index += 1
-        except AttributeError:
-            index += 1
-
-        if index % 25 == 0:
-            print(f"Processing - {index}")
-
+        count = 0
+        index += 1
+        print(f"{index} - {URL}")
 
 
 if __name__ == "__main__":
